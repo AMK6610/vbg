@@ -2,7 +2,7 @@ import jax.numpy as jnp
 import optax
 
 from jax import random, jit, tree_util
-from gflownet_sl.utils.gflownet import uniform_log_policy
+from ..utils.gflownet import uniform_log_policy
 
 
 def batch_random_choice(key, probas, masks):
