@@ -7,7 +7,7 @@ from copy import deepcopy
 from gym.spaces import Dict, Box, Discrete
 from gym.vector.utils.spaces import batch_space
 
-from gflownet_sl.utils.cache import LRUCache
+from .utils.cache import LRUCache
 
 
 class GFlowNetDAGEnv(gym.vector.VectorEnv):

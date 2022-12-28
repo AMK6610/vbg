@@ -2,8 +2,8 @@ import jax.numpy as jnp
 import haiku as hk
 import math
 
-from gflownet_sl.utils.gflownet import GFlowNetOutput
-from gflownet_sl.nets.transformers import TransformerBlock
+from ..utils.gflownet import GFlowNetOutput
+from ..nets.transformers import TransformerBlock
 
 
 def gflownet(adjacency, is_training):

@@ -3,7 +3,7 @@ import haiku as hk
 
 from jax import nn
 
-from gflownet_sl.nets.utils.fast_attention import make_fast_softmax_attention
+from ..nets.utils.fast_attention import make_fast_softmax_attention
 
 
 class MultiHeadDotProductFastAttention(hk.MultiHeadAttention):

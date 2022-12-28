@@ -6,11 +6,11 @@ from functools import partial
 from collections import namedtuple
 from jax import grad, jit, random, vmap
 
-from gflownet_sl.nets.gflownet import gflownet
-from gflownet_sl.utils.gflownet import (uniform_log_policy,
+from .nets.gflownet import gflownet
+from .utils.gflownet import (uniform_log_policy,
     detailed_balance_loss, log_policy)
-from gflownet_sl.utils.jnp_utils import batch_random_choice, tree_mse
-from gflownet_sl.utils.multistep import get_nstep_indices
+from .utils.jnp_utils import batch_random_choice, tree_mse
+from .utils.multistep import get_nstep_indices
 
 
 GFlowNetState = namedtuple('GFlowNetState', ['optimizer', 'key'])

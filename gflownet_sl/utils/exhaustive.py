@@ -7,9 +7,9 @@ from collections import namedtuple, defaultdict
 from pgmpy.estimators import ExhaustiveSearch, BDeuScore
 from tqdm import tqdm
 
-from gflownet_sl.utils.graph import get_markov_blanket_graph
-from gflownet_sl.scores.pgmpy_bge_score import BGeScore
-from gflownet_sl.scores.lingauss import LinearGaussianScore
+from ..utils.graph import get_markov_blanket_graph
+from ..scores.pgmpy_bge_score import BGeScore
+from ..scores.lingauss import LinearGaussianScore
 
 # https://oeis.org/A003024
 NUM_DAGS = [1, 1, 3, 25, 543, 29281, 3781503]
@@ -176,7 +176,7 @@ def get_markov_blanket_log_features(posterior):
 
 if __name__ == '__main__':
     from pgmpy.utils import get_example_model
-    from gflownet_sl.utils.sampling import sample_from_discrete
+    from ..utils.sampling import sample_from_discrete
 
     model = get_example_model('cancer')
     samples = sample_from_discrete(model, num_samples=100)

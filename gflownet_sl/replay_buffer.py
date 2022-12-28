@@ -3,7 +3,7 @@ import math
 
 from numpy.random import default_rng
 
-from gflownet_sl.utils.multistep import get_nstep_mask
+from .utils.multistep import get_nstep_mask
 
 
 class ReplayBuffer:

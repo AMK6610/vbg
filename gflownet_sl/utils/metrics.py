@@ -10,10 +10,10 @@ from functools import partial
 from tqdm import tqdm, trange
 from collections import namedtuple, defaultdict
 
-from gflownet_sl.nets.gflownet import gflownet
-from gflownet_sl.utils.gflownet import log_policy
-from gflownet_sl.utils.jnp_utils import batch_random_choice
-from gflownet_sl.utils.graph import adjacencies_to_networkx, get_markov_blanket_graph
+from ..nets.gflownet import gflownet
+from ..utils.gflownet import log_policy
+from ..utils.jnp_utils import batch_random_choice
+from ..utils.graph import adjacencies_to_networkx, get_markov_blanket_graph
 
 
 def update_bwd(adjacency, closure, action):
@@ -240,8 +240,8 @@ if __name__ == '__main__':
     print(log_likelihood)
 
     # from pgmpy.utils import get_example_model
-    # from gflownet_sl.env import GFlowNetDAGEnv
-    # from gflownet_sl.utils.sampling import sample_from_discrete
+    # from ..env import GFlowNetDAGEnv
+    # from ..utils.sampling import sample_from_discrete
 
     # graph = get_example_model('sachs')
     # samples = sample_from_discrete(graph, num_samples=1000)

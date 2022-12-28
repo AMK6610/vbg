@@ -3,7 +3,7 @@ import string
 import numpy as np
 from numpy.random import default_rng
 
-from gflownet_sl.utils.graph import sample_erdos_renyi_linear_gaussian
+from ..utils.graph import sample_erdos_renyi_linear_gaussian
 
 let_num = {letter: index for index, letter in enumerate(string.ascii_uppercase, start=0)} 
 

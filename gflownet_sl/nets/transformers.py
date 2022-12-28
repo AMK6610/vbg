@@ -3,7 +3,7 @@ import haiku as hk
 
 from jax import nn
 
-from gflownet_sl.nets.attention import (
+from ..nets.attention import (
     MultiHeadDotProductFastAttention, LinearMultiHeadAttention)
 
 

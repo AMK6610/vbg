@@ -1,5 +1,5 @@
-from gflownet_sl.scores.base import BaseScore, LocalScore
-from gflownet_sl.scores.pgmpy_bge_score import BGeScore as BGeScore_
+from ..scores.base import BaseScore, LocalScore
+from ..scores.pgmpy_bge_score import BGeScore as BGeScore_
 
 
 class BGeScore(BaseScore):
