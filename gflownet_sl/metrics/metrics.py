@@ -138,7 +138,7 @@ def threshold_metrics(posterior, ground_truth):
         'ave_prec': ave_prec,
     }
 
-def log_likelihood_node_j(j, data, W, sigma=0.1):
+def log_likelihood_node_j(j, data, W, sigma=0.1, interv_targets=None):
     """
         Given a weighted adjacency matrix, and node index, calculate 
         the local log likelihood of data: P(X_j | G, theta)
@@ -163,12 +163,18 @@ def log_likelihood_node_j(j, data, W, sigma=0.1):
             log P(X_j | G, theta)
     """
     N = data.shape[0]
-    squared_error = -0.5 * np.sum((data[:, j] - (data @ W)[:, j]) ** 2) / (sigma ** 2)
-    const_term = N * np.log(sigma) + (N / 2) * np.log(2 * np.pi)
+    if interv_targets is None:
+        interv_targets = np.zeros(data.shape)
+    # print(f'data: {data}\nW: {W}\nsigma: {sigma}')
+    squared_error = -0.5 * np.sum((1 - interv_targets)[:, j] * ((data[:, j] - (data @ W)[:, j]) ** 2)) / (sigma ** 2)
+    # print(f'shapes: {(1 - interv_targets)[:, j].shape} {squared_error.shape}')
+    # print(f'squared error: {squared_error}')
+    const_term = (N - np.sum(interv_targets[:, j])) * np.log(sigma) + ((N - np.sum(interv_targets[:, j])) / 2) * np.log(2 * np.pi)
+    # print(f'squared error: {squared_error}, const term: {const_term}')
     ll_j = squared_error - const_term
     return ll_j
 
-def log_likelihood_per_g(data, W, sigma=0.1):
+def log_likelihood_per_g(data, W, sigma=0.1, interv_targets=None):
     """
         Given a weighted adjacency matrix, calculate log likelihood of data
         as sum of data log likelihood over each of the `d` nodes.
@@ -192,11 +198,11 @@ def log_likelihood_per_g(data, W, sigma=0.1):
     d = W.shape[-1]
     ll = 0.
     for j in range(d):
-        ll_j = log_likelihood_node_j(j, data, W, sigma)
+        ll_j = log_likelihood_node_j(j, data, W, sigma, interv_targets)
         ll += ll_j
     return ll
 
-def LL(gs, thetas, data, sigma):
+def LL(gs, thetas, data, sigma, interv_targets=None):
     """
         Compute the observational log likelihood: P(X | G, theta)
         Parameters
@@ -228,12 +234,12 @@ def LL(gs, thetas, data, sigma):
     if isinstance(sigma, float):
         for g, theta in zip(gs, thetas):
             W = np.multiply(g, theta)
-            log_likelihood = log_likelihood_per_g(data, W, sigma)
+            log_likelihood = log_likelihood_per_g(data, W, sigma, interv_targets)
             log_likelihoods.append(log_likelihood) 
     else:
         for g, theta, sig in zip(gs, thetas, sigma):
             W = np.multiply(g, theta)
-            log_likelihood = log_likelihood_per_g(data, W, sig)
+            log_likelihood = log_likelihood_per_g(data, W, sig, interv_targets)
             log_likelihoods.append(log_likelihood) 
     
     log_expected_likelihood = logsumexp(np.array(log_likelihoods)) - np.log(len(log_likelihoods))
