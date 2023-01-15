@@ -214,7 +214,7 @@ def update_parameters(params, prior, graphs, empirical_cov, obs_noise):
 def update_parameters_full(prior, graphs, X, obs_noise):
     num_graphs = graphs.shape[0]
     XTX = jnp.matmul(X.T, X)
-    def _update(parents, y):
+    def _update(parents, y, obs_noise):
         # This is equivalent to Bayesian Linear Regression, but where the
         # inputs are weighted by the edge marginals.
         XTX_w = jnp.matmul(parents.T, parents) * XTX / num_graphs
@@ -224,5 +224,5 @@ def update_parameters_full(prior, graphs, X, obs_noise):
         # print(f'b & precision shapes: {b.shape}, {precision.shape}')
         mean = jnp.linalg.solve(precision, b)
         return NormalParameters(mean=mean, precision=precision)
-    return jax.vmap(_update, in_axes=-1, out_axes=-1)(graphs, X)
+    return jax.vmap(_update, in_axes=-1, out_axes=-1)(graphs, X, obs_noise)
 
