@@ -40,7 +40,7 @@ from gflownet_sl.utils.graph_plot import graph_to_matrix
 NormalParameters = namedtuple('NormalParameters', ['mean', 'precision'])
 def main(args):
     wandb.init(
-        project='vbg',
+        project='final_result_weighting',
         settings=wandb.Settings(start_method='fork')
     )
     wandb.config.update(args)
@@ -54,6 +54,7 @@ def main(args):
     start_time = time()
     # Generate samples from a graph
     rng = default_rng(args.seed)
+    rng_2 = default_rng(args.seed +1000)
     env_kwargs = dict()
     annot = True
     if args.graph == 'erdos_renyi_lingauss':
@@ -61,7 +62,8 @@ def main(args):
             num_variables=args.num_variables,
             num_edges=args.num_edges,
             loc_edges=0.0,
-            scale_edges=1.0,
+            scale_edges=args.scale_edges,
+            low_edges=args.low_edges,
             obs_noise=args.true_obs_noise,
             rng=rng,
             block_small_theta=args.block_small_theta
@@ -71,10 +73,19 @@ def main(args):
             num_samples=args.num_samples,
             rng=rng
         )
-        if args.benchmarking:
-            with open(file_paths["graph"], 'rb') as f:
-                graph = pickle.load(f)
-            data = pd.read_csv(file_paths["data"], index_col=0)
+        data_test = sample_from_linear_gaussian(
+            graph,
+            num_samples=args.num_samples,
+            rng=rng_2
+        )
+        data_test.to_csv(os.path.join(wandb.run.dir, 'data_test.csv'))
+        wandb.save('data_test.csv', policy='now')
+
+                
+        #if args.benchmarking:
+        #    with open(file_paths["graph"], 'rb') as f:
+        #    graph = pickle.load(f)
+        #    data = pd.read_csv(file_paths["data"], index_col=0)
         plt.figure()
         plt.clf()
         annot = True
@@ -337,8 +348,7 @@ def main(args):
                                     1-args.min_exploration,
                                     ((1-args.min_exploration)*2/num_vb_updates)*vb_iters)
                             else:
-                                epsilon = jnp.array(0.)
-            
+                                epsilon = jnp.array(0.)            
                 else:
                     epsilon = jnp.minimum(1. - args.min_exploration, iteration*2 / args.num_iterations)
 
@@ -381,7 +391,7 @@ def main(args):
                                 prior,
                                 xtx,
                                 args.obs_noise,
-                                args.kl_weight,
+                                args.weight,
                                 args.use_erdos_prior)
 
                     else:
@@ -393,7 +403,6 @@ def main(args):
                                 prior,
                                 xtx,
                                 args.obs_noise)
-
                     samples['rewards'][0] = diff_marg_ll
                     mean_rewards = jnp.mean(diff_marg_ll)
                 params, state, logs = gflownet.step(
@@ -416,7 +425,7 @@ def main(args):
                                         'delta mean': diff_mean,
                                         'delta_prec': diff_prec,
                                         'eps': epsilon,
-                                        'mean reward': mean_rewards})
+                                        'mean delta': mean_rewards})
 
                 replay.update_priorities(samples, logs['error'])
             if (iteration + 1) % (args.log_every * 10) == 0:
@@ -504,14 +513,19 @@ def main(args):
     )
     posterior = (orders >= 0).astype(np.int_)
     if args.full_cov:
-        edge_cov = jax.vmap(jnp.linalg.inv, in_axes=2, out_axes=0)(edge_params.precision)
+        edge_cov = jax.vmap(jnp.linalg.inv, in_axes=-1, out_axes=-1)(edge_params.precision)
     else: 
         edge_cov = jnp.linalg.inv(edge_params.precision)
-    posterior_theta = random.multivariate_normal(key,
-                                                 edge_params.mean,
-                                                 edge_cov, shape=(args.num_samples_posterior,args.num_variables))
-
-    log_like = -1*LL(posterior, posterior_theta, data.to_numpy(), sigma=np.sqrt(args.obs_noise))
+    if args.full_cov:
+        posterior_theta = jax.vmap(
+            random.multivariate_normal, in_axes=(None, -1, -1, None),  out_axes=(-1))(key,
+                                                                                edge_params.mean,
+                                                                                edge_cov, (args.num_samples_posterior,))
+    else:
+        posterior_theta = random.multivariate_normal(key,
+                                                     edge_params.mean,
+                                                     edge_cov, shape=(args.num_samples_posterior,args.num_variables))
+    log_like = -1*LL(posterior, posterior_theta, data_test.to_numpy(), sigma=np.sqrt(args.obs_noise))
     
     wandb.run.summary.update({"negative log like": log_like})
     if args.benchmarking:
@@ -558,7 +572,11 @@ def main(args):
     with open(os.path.join(wandb.run.dir, 'posterior_estimate.npy'), 'wb') as f:
         np.save(f, orders)
     wandb.save('posterior_estimate.npy', policy='now')
+    with open(os.path.join(wandb.run.dir, 'posterior_estimate_thetas.npy'), 'wb') as f:
+        np.save(f, posterior_theta)
+    wandb.save('posterior_estimate_theta.npy', policy='now')
 
+    
     # Evaluate: for small enough graphs, evaluate the full posterior
     if (args.graph in ['erdos_renyi_lingauss', 'erdos_renyi_lingauss_3_nodes']) and (args.num_variables < 6):
         # Default values set by data generation
@@ -583,7 +601,7 @@ def main(args):
         full_path_log_features = get_path_log_features(full_posterior)
         full_markov_log_features = get_markov_blanket_log_features(full_posterior)
         wandb.run.summary.update({
-            'posterior/full/edge': table_from_dict(full_edge_log_features),
+            'posterior/fufll/edge': table_from_dict(full_edge_log_features),
             'posterior/full/path': table_from_dict(full_path_log_features),
             'posterior/full/markov_blanket': table_from_dict(full_markov_log_features)
         })
@@ -694,13 +712,18 @@ if __name__ == '__main__':
 
     parser.add_argument('--num_vb_updates', type=int, default=2000,
                         help='number of updates to gflownet per one update of parameters in VB setup')
-    parser.add_argument('--kl_weight', type=float, default=1.0,
+    parser.add_argument('--weight', type=float, default=1.0,
                         help='amount of weighting of KL term')
     
     parser.add_argument('--obs_noise', type=float, default=1.0,
                         help='likelihood variance in approximate posterior')
     parser.add_argument('--true_obs_noise', type=float, default=0.1,
                         help='true likelihood variance, data generated with this variance')
+    parser.add_argument('--scale_edges', type=float, default=2.0,
+                        help='upper limit for edge scale')
+    parser.add_argument('--low_edges', type=float, default=0.5,
+                        help='lower limit for edge scale')
+
     parser.add_argument('--prior_mean', type=int, default=0,
                         help='prior is a gaussian. Mean of that gaussian')
     parser.add_argument('--prior_var', type=int, default=1,

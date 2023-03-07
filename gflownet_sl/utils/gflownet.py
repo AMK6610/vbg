@@ -5,7 +5,7 @@ import pickle
 import optax
 import numpy as np
 import math
-import jax
+import jax 
 from jax import nn, lax, scipy
 from collections import namedtuple
 import bisect
@@ -42,7 +42,7 @@ def detailed_balance_loss(
     # Sum the total above along all subsequences
     subsq_total = jnp.zeros_like(subsq_mask)
     subsq_total = subsq_total.at[subsq.rows].add(total[subsq.cols])
-
+    
     # Compute the log-probabilities of terminating at the start for all subsequences
     subsq_log_psf_start = log_pi_t[subsq.start, :, -1]
 
@@ -92,9 +92,8 @@ def compute_delta_score_lingauss(adjacency, action, params, prior, XTX, obs_nois
     num_variables = params.mean.shape[0]
     source, target = divmod(action, num_variables)
     term1 = -2 * params.mean[source, target] * XTX[source, target]
-    is_not_zero = params.precision == 0
+    is_not_zero = params.precision == 0  
     var = (1/params.precision)*is_not_zero
-
     moment_2 = var[source, target] + params.mean[source, target] ** 2
     term2 = XTX[source, source] * moment_2
     term3 = 2 * params.mean[source, target] * jnp.vdot(
@@ -103,7 +102,7 @@ def compute_delta_score_lingauss(adjacency, action, params, prior, XTX, obs_nois
         prior_mean = prior.mean[source, target]
         prior_precision = prior.precision[source, target]
         term4 = prior_precision * (params.mean[source, target] - prior_mean) ** 2
-
+        
         term5 = (jnp.log(2 * jnp.pi) - jnp.log(prior_precision)
                  + prior_precision * var[source, target])
         return -0.5 * ((term1 + term2 + term3) / (obs_noise[target] ** 2) + term4 + term5)
@@ -114,7 +113,7 @@ def compute_delta_score_lingauss(adjacency, action, params, prior, XTX, obs_nois
 
 def compute_delta_score_lingauss_full(adjacency, action, params,
                                       prior, XTX, obs_noise,
-                                      kl_weight, use_erdos_prior):
+                                      weight, use_erdos_prior):
     num_variables = params.mean.shape[0]
     source, target = divmod(action, num_variables)
     # print(f'source, target: {source}, {target}')
@@ -138,17 +137,17 @@ def compute_delta_score_lingauss_full(adjacency, action, params,
 
     offset = 2*(params.mean[source, target]**2 + g_dash_cov[source, source])*XTX[source, source]
     term3 = 2 * jnp.vdot(XTX[source], moment_3.squeeze(1)) - offset
-    g_dash_mean =  params.mean[:,target].squeeze(1) - prior.mean
+    g_dash_mean =  params.mean[:,target].squeeze(1) - prior.mean 
     # Masking mean term for R(G)
     mask = jnp.zeros((num_variables, num_variables))
     mask = mask.at[source,target].set(1)
     g_mean = (params.mean[:,target]).squeeze(1) - ((params.mean*mask)[:,target]).squeeze(1) - prior.mean
     inv_prior_precision = jnp.linalg.inv(prior.precision)
     #KL terms
-    kl_1 = jnp.matmul(g_dash_mean, jnp.matmul(inv_prior_precision, g_dash_mean)) - jnp.matmul(g_mean, jnp.matmul(inv_prior_precision, g_mean))
-    kl_2 = jnp.trace(jnp.matmul(inv_prior_precision, g_dash_cov)) - jnp.trace(jnp.matmul(inv_prior_precision, g_cov))
+    kl_1 = jnp.matmul(g_dash_mean, jnp.matmul(prior.precision, g_dash_mean)) - jnp.matmul(g_mean, jnp.matmul(prior.precision, g_mean))
+    kl_2 = jnp.trace(jnp.matmul(prior.precision, g_dash_cov)) - jnp.trace(jnp.matmul(prior.precision, g_cov))
     kl_3 = -1*((jnp.linalg.slogdet(g_dash_cov))[1] - (jnp.linalg.slogdet(g_cov)[1]))
-    kl_term = kl_weight*0.5*(kl_1 + kl_2 + kl_3)
+    kl_term = 0.5*(kl_1 + kl_2 + kl_3)
     # prior term
     # Key before adding the new source node
     parents_before = (jnp.sum(adjacency[:,target])).astype(int)
@@ -158,11 +157,9 @@ def compute_delta_score_lingauss_full(adjacency, action, params,
     if use_erdos_prior:
         prior_score_before = erdos_renyi_prior(num_variables)[parents_before]
         prior_score_after = erdos_renyi_prior(num_variables)[parents_after]
-        return  -0.5 * (
-            (term1 + term2 + term3) / (obs_noise[target])) - kl_term + prior_score_after - prior_score_before
+        return  -0.5 * weight * ((term1 + term2 + term3) / (obs_noise[target])) - kl_term + prior_score_after - prior_score_before
     else:
-        return  -0.5 * (
-            (term1 + term2 + term3) / (obs_noise[target])) - kl_term
+        return  weight * (-0.5 * ((term1 + term2 + term3) / (obs_noise[target]))  - kl_term)
 
 
 
@@ -208,7 +205,7 @@ def update_parameters(params, prior, graphs, empirical_cov, obs_noise):
 
     term1 = jnp.einsum('ikj,kj,kj->ij', m, empirical_cov, params.mean)
     term2 = w * empirical_cov * (1 + params.mean)
-    mean = (prior.mean *prior.precision *w  + (term2 - term1) / obs_noise**2) / inv_variance
+    mean = (prior.mean *prior.precision *w  + (term2 - term1) / obs_noise**2) / inv_variance   
     return NormalParameters(mean=mean, precision=inv_variance)
 
 def update_parameters_full(prior, graphs, X, obs_noise):
@@ -225,4 +222,3 @@ def update_parameters_full(prior, graphs, X, obs_noise):
         mean = jnp.linalg.solve(precision, b)
         return NormalParameters(mean=mean, precision=precision)
     return jax.vmap(_update, in_axes=-1, out_axes=-1)(graphs, X, obs_noise)
-
